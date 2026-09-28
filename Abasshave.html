@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <h2 id="hello">Loading...</h2>
+  <button onclick="tap()">Tap</button>
+  <p>Score: <span id="score">0</span></p>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    const user = tg.initDataUnsafe.user;
+    document.getElementById('hello').textContent =
+      'Hi ' + (user ? user.first_name : 'there') +
+      ' (ref: ' + (tg.initDataUnsafe.start_param || 'none') + ')';
+    let score = 0;
+    function tap() {
+      score++;
+      document.getElementById('score').textContent = score;
+      tg.HapticFeedback.impactOccurred('light');
+    }
+  </script>
+</body>
+</html>
