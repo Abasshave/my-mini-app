@@ -1,27 +1,239 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>TapGrain</title>
+
+  <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    /* ---------- Base ---------- */
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      background: linear-gradient(180deg, #1b1f3a 0%, #0f1124 100%);
+      color: #ffffff;
+      font-family: -apple-system, Roboto, Arial, sans-serif;
+    }
+
+    /* ---------- Top bar ---------- */
+    .top {
+      width: 100%;
+      padding: 18px 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hello {
+      font-size: 16px;
+      opacity: 0.85;
+    }
+
+    .level {
+      background: #ffb703;
+      color: #3a2a00;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 20px;
+    }
+
+    /* ---------- Score ---------- */
+    .score-box {
+      margin-top: 30px;
+      text-align: center;
+    }
+
+    .score {
+      font-size: 64px;
+      font-weight: 800;
+      line-height: 1;
+      color: #ffd166;
+    }
+
+    .label {
+      margin-top: 6px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    /* ---------- Progress bar ---------- */
+    .bar {
+      width: 80%;
+      max-width: 320px;
+      height: 10px;
+      margin-top: 22px;
+      background: #ffffff22;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #ffb703, #fb8500);
+      transition: width 0.2s;
+    }
+
+    /* ---------- Tap area ---------- */
+    .tap-area {
+      flex: 1;
+      width: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .grain {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 90px;
+      background: radial-gradient(circle at 35% 30%, #ffe08a, #ffb703 55%, #c77800);
+      box-shadow: 0 0 40px #ffb70066, inset 0 -10px 25px #00000033;
+      transition: transform 0.08s;
+    }
+
+    .grain:active {
+      transform: scale(0.93);
+    }
+
+    /* ---------- "+1" animation ---------- */
+    .float {
+      position: absolute;
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffd166;
+      pointer-events: none;
+      animation: rise 0.8s ease-out forwards;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-90px);
+      }
+    }
+
+    /* ---------- Footer ---------- */
+    .footer {
+      padding: 16px;
+      font-size: 12px;
+      opacity: 0.5;
+    }
+  </style>
 </head>
+
 <body>
-  <h2 id="hello">Loading...</h2>
-  <button onclick="tap()">Tap</button>
-  <p>Score: <span id="score">0</span></p>
+
+  <!-- Top bar -->
+  <div class="top">
+    <div class="hello" id="hello">Hi!</div>
+    <div class="level" id="level">Level 1</div>
+  </div>
+
+  <!-- Score -->
+  <div class="score-box">
+    <div class="score" id="score">0</div>
+    <div class="label">Grains collected</div>
+    <div class="bar">
+      <div class="fill" id="fill"></div>
+    </div>
+  </div>
+
+  <!-- Tap area -->
+  <div class="tap-area" id="area">
+    <div class="grain" id="grain">🌾</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer" id="footer"></div>
+
+
   <script>
+    // ---------- Telegram setup ----------
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
+    tg.setHeaderColor('#1b1f3a');
+    tg.setBackgroundColor('#1b1f3a');
+
     const user = tg.initDataUnsafe.user;
+    const ref = tg.initDataUnsafe.start_param;
+
     document.getElementById('hello').textContent =
-      'Hi ' + (user ? user.first_name : 'there') +
-      ' (ref: ' + (tg.initDataUnsafe.start_param || 'none') + ')';
-    let score = 0;
-    function tap() {
-      score++;
+      'Hi ' + (user ? user.first_name : 'there') + ' 👋';
+
+    document.getElementById('footer').textContent =
+      ref ? 'Invited by: ' + ref : '';
+
+
+    // ---------- Game state ----------
+    const KEY = 'tapgrain_score';
+    const PER_LEVEL = 50;
+    let score = parseInt(localStorage.getItem(KEY) || '0', 10);
+
+
+    // ---------- Update the screen ----------
+    function render() {
+      const level = Math.floor(score / PER_LEVEL) + 1;
+      const progress = (score % PER_LEVEL) / PER_LEVEL * 100;
+
       document.getElementById('score').textContent = score;
-      tg.HapticFeedback.impactOccurred('light');
+      document.getElementById('level').textContent = 'Level ' + level;
+      document.getElementById('fill').style.width = progress + '%';
     }
+
+
+    // ---------- Handle a tap ----------
+    function tap(e) {
+      score++;
+      localStorage.setItem(KEY, score);
+      render();
+      tg.HapticFeedback.impactOccurred('light');
+
+      // Floating "+1"
+      const area = document.getElementById('area');
+      const rect = area.getBoundingClientRect();
+      const point = (e.touches && e.touches[0]) || e;
+
+      const plusOne = document.createElement('div');
+      plusOne.className = 'float';
+      plusOne.textContent = '+1';
+      plusOne.style.left = (point.clientX - rect.left - 10) + 'px';
+      plusOne.style.top = (point.clientY - rect.top - 30) + 'px';
+
+      area.appendChild(plusOne);
+      setTimeout(() => plusOne.remove(), 800);
+    }
+
+
+    // ---------- Start ----------
+    document.getElementById('grain').addEventListener('pointerdown', tap);
+    render();
   </script>
+
 </body>
 </html>
