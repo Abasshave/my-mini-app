@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>TapGrain</title>
+
+  <!-- Telegram Mini App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    /* ---------- Base ---------- */
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      background:
+        radial-gradient(circle at 50% 0%, #3b2a7a 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, #7a4a0a 0%, transparent 50%),
+        linear-gradient(180deg, #181a3a 0%, #0c0e1f 100%);
+      color: #ffffff;
+      font-family: -apple-system, Roboto, Arial, sans-serif;
+    }
+
+    /* ---------- Floating golden dust ---------- */
+    .dust {
+      position: absolute;
+      bottom: -20px;
+      border-radius: 50%;
+      background: #ffd166;
+      opacity: 0;
+      pointer-events: none;
+      animation: drift linear infinite;
+    }
+
+    @keyframes drift {
+      0%   { transform: translateY(0) scale(1); opacity: 0; }
+      15%  { opacity: 0.7; }
+      100% { transform: translateY(-105vh) scale(0.4); opacity: 0; }
+    }
+
+    /* ---------- Top bar ---------- */
+    .top {
+      margin: 14px 16px 0;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff12;
+      border: 1px solid #ffffff1f;
+      border-radius: 18px;
+      backdrop-filter: blur(8px);
+      z-index: 2;
+      flex-shrink: 0;
+    }
+
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #3a2a00;
+      background: linear-gradient(135deg, #ffe08a, #fb8500);
+    }
+
+    .name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .title {
+      font-size: 12px;
+      opacity: 0.65;
+    }
+
+    .level {
+      padding: 7px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #3a2a00;
+      background: linear-gradient(135deg, #ffe08a, #ffb703);
+      box-shadow: 0 0 14px #ffb70055;
+    }
+
+    /* ---------- Screens ---------- */
+    .screens {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .panel {
+      display: none;
+      height: 100%;
+      overflow-y: auto;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .panel.active {
+      display: flex;
+    }
+
+    .page {
+      width: 100%;
+      padding: 16px 16px 24px;
+    }
+
+    .page h2 {
+      margin: 4px 0 14px;
+      font-size: 20px;
+    }
+
+    /* ---------- Play screen: score ---------- */
+    .score-box {
+      margin-top: 22px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .score {
+      font-size: 68px;
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(180deg, #fff1b8, #ffb703);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 4px 18px #ffb70066);
+    }
+
+    .score.bump {
+      animation: bump 0.15s ease-out;
+    }
+
+    @keyframes bump {
+      50% { transform: scale(1.08); }
+    }
+
+    .label {
+      margin-top: 8px;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    .progress {
+      width: 78%;
+      max-width: 320px;
+      margin: 18px auto 0;
+    }
+
+    .bar {
+      height: 12px;
+      background: #ffffff1a;
+      border: 1px solid #ffffff1f;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 12px;
+      background: linear-gradient(90deg, #ffb703, #fb8500, #ff5d8f);
+      box-shadow: 0 0 12px #fb850088;
+      transition: width 0.2s;
+    }
+
+    .progress-text {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    .stats {
+      margin-top: 12px;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    /* ---------- Play screen: tap area ---------- */
+    .tap-area {
+      flex: 1;
+      width: 100%;
+      min-height: 250px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .grain-wrap {
+      position: relative;
+      width: 230px;
+      height: 230px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .grain-wrap::before {
+      content: "";
+      position: absolute;
+      inset: -18px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffb70055 0%, transparent 70%);
+      animation: pulse 2.2s ease-in-out infinite;
+    }
+
+    .grain-wrap::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 2px dashed #ffd16655;
+      animation: spin 18s linear infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.95); opacity: 0.7; }
+      50%      { transform: scale(1.1); opacity: 1; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .grain {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 96px;
+      z-index: 1;
+      background: radial-gradient(circle at 35% 28%, #fff3c4, #ffc83d 45%, #e08e00 80%, #a85f00);
+      box-shadow:
+        0 14px 40px #00000066,
+        0 0 50px #ffb70066,
+        inset 0 -14px 28px #00000040,
+        inset 0 10px 20px #ffffff55;
+      transition: transform 0.12s ease-out;
+    }
+
+    /* ---------- Tap effects ---------- */
+    .float {
+      position: absolute;
+      font-size: 28px;
+      font-weight: 900;
+      color: #ffe08a;
+      text-shadow: 0 2px 10px #000000aa;
+      pointer-events: none;
+      z-index: 5;
+      animation: rise 0.9s ease-out forwards;
+    }
+
+    @keyframes rise {
+      from { opacity: 1; transform: translate(0, 0) scale(0.8); }
+      to   { opacity: 0; transform: translate(var(--dx), -110px) scale(1.3); }
+    }
+
+    .ripple {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      margin: -15px 0 0 -15px;
+      border-radius: 50%;
+      border: 3px solid #fff3c4;
+      pointer-events: none;
+      z-index: 4;
+      animation: ripple 0.6s ease-out forwards;
+    }
+
+    @keyframes ripple {
+      from { opacity: 0.9; transform: scale(0.5); }
+      to   { opacity: 0; transform: scale(5); }
+    }
+
+    .levelup {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 14px 28px;
+      border-radius: 20px;
+      font-size: 26px;
+      font-weight: 900;
+      white-space: nowrap;
+      color: #3a2a00;
+      background: linear-gradient(135deg, #fff1b8, #ffb703);
+      box-shadow: 0 0 40px #ffb703aa;
+      pointer-events: none;
+      z-index: 20;
+      animation: pop 1.6s ease-out forwards;
+    }
+
+    @keyframes pop {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+      15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+      30%  { transform: translate(-50%, -50%) scale(1); }
+      80%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -90%) scale(1); }
+    }
+
+    /* ---------- Cards and buttons ---------- */
+    .card {
+      margin-bottom: 12px;
+      padding: 14px;
+      background: #ffffff12;
+      border: 1px solid #ffffff1f;
+      border-radius: 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+
+    .btn {
+      flex-shrink: 0;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #3a2a00;
+      background: linear-gradient(135deg, #ffe08a, #ffb703);
+      box-shadow: 0 0 14px #ffb70044;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+    .btn.off {
+      color: #ffffff99;
+      background: #ffffff1f;
+      box-shadow: none;
+    }
+
+    .btn.wide {
+      width: 100%;
+      margin-top: 10px;
+      padding: 14px;
+      font-size: 16px;
+    }
+
+    .small-bar {
+      height: 8px;
+      margin-top: 10px;
+      background: #ffffff1a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .small-bar div {
+      height: 100%;
+      background: linear-gradient(90deg, #ffb703, #fb8500);
+    }
+
+    .link-box {
+      margin-top: 12px;
+      padding: 10px;
+      font-size: 12px;
+      word-break: break-all;
+      opacity: 0.7;
+      background: #00000033;
+      border-radius: 10px;
+      user-select: text;
+    }
+
+    /* ---------- Leaderboard ---------- */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      padding: 10px 14px;
+      background: #ffffff10;
+      border-radius: 14px;
+    }
+
+    .lb-row.me {
+      background: #ffb70033;
+      border: 1px solid #ffb70088;
+    }
+
+    .lb-rank {
+      width: 30px;
+      font-size: 16px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .lb-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lb-score {
+      font-weight: 800;
+      color: #ffd166;
+    }
+
+    .empty {
+      padding: 30px 0;
+      text-align: center;
+      opacity: 0.6;
+    }
+
+    /* ---------- Bottom menu ---------- */
+    .nav {
+      display: flex;
+      flex-shrink: 0;
+      padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+      background: #0c0e1fee;
+      border-top: 1px solid #ffffff1a;
+      z-index: 3;
+    }
+
+    .nav button {
+      flex: 1;
+      position: relative;
+      padding: 6px 0;
+      border: none;
+      background: none;
+      color: #ffffff88;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .nav button span {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 22px;
+    }
+
+    .nav button.active {
+      color: #ffd166;
+    }
+
+    .nav .dot {
+      display: none;
+      position: absolute;
+      top: 2px;
+      left: 55%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff4d6d;
+    }
+
+    .nav .dot.show {
+      display: block;
+    }
+
+    /* ---------- Message pop-up ---------- */
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 90px;
+      transform: translateX(-50%);
+      max-width: 85%;
+      padding: 12px 20px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      background: #000000dd;
+      border: 1px solid #ffffff33;
+      z-index: 30;
+      pointer-events: none;
+      animation: toast 2.2s ease-out forwards;
+    }
+
+    @keyframes toast {
+      0%   { opacity: 0; transform: translate(-50%, 10px); }
+      10%  { opacity: 1; transform: translate(-50%, 0); }
+      85%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top bar -->
+  <div class="top">
+    <div class="player">
+      <div class="avatar" id="avatar">T</div>
+      <div>
+        <div class="name" id="name">Hi!</div>
+        <div class="title" id="title">Seedling</div>
+      </div>
+    </div>
+    <div class="level" id="level">Lv 1</div>
+  </div>
+
+  <!-- Screens -->
+  <div class="screens">
+
+    <!-- PLAY -->
+    <div class="panel active" id="panel-play">
+      <div class="score-box">
+        <div class="score" id="score">...</div>
+        <div class="label">Grains collected</div>
+
+        <div class="progress">
+          <div class="bar"><div class="fill" id="fill"></div></div>
+          <div class="progress-text" id="progressText"></div>
+        </div>
+
+        <div class="stats" id="stats"></div>
+      </div>
+
+      <div class="tap-area" id="area">
+        <div class="grain-wrap">
+          <div class="grain" id="grain">🌾</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="panel" id="panel-tasks"></div>
+
+    <!-- SHOP -->
+    <div class="panel" id="panel-shop"></div>
+
+    <!-- TOP PLAYERS -->
+    <div class="panel" id="panel-top"></div>
+
+    <!-- FRIENDS -->
+    <div class="panel" id="panel-friends"></div>
+
+  </div>
+
+  <!-- Bottom menu -->
+  <div class="nav" id="nav">
+    <button data-tab="play" class="active"><span>🌾</span>Play</button>
+    <button data-tab="tasks"><span>🎁</span>Tasks<i class="dot" id="dot-tasks"></i></button>
+    <button data-tab="shop"><span>🛒</span>Shop</button>
+    <button data-tab="top"><span>🏆</span>Top</button>
+    <button data-tab="friends"><span>👥</span>Friends</button>
+  </div>
+
+
+  <script>
+    // ---------- Settings ----------
+    const API_URL = 'https://ikexyelkowbnvhgkkhfa.supabase.co/functions/v1/smart-handler';
+    const BOT_LINK = 'https://t.me/TapGrain_bot/play';
+    const TITLES = [
+      'Seedling', 'Sprout', 'Gardener', 'Farmer', 'Harvester',
+      'Miller', 'Baker', 'Grain Master', 'Golden Legend'
+    ];
+
+    // ---------- Telegram setup ----------
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor('#181a3a');
+    tg.setBackgroundColor('#181a3a');
+    try { tg.setBottomBarColor('#0c0e1f'); } catch (e) {}
+
+    const user = tg.initDataUnsafe.user;
+    const ref = tg.initDataUnsafe.start_param;
+    const firstName = user ? user.first_name : 'Player';
+
+    document.getElementById('name').textContent = firstName;
+    document.getElementById('avatar').textContent = firstName.charAt(0).toUpperCase();
+
+
+    // ---------- Game state ----------
+    let S = null;            // latest info from the server
+    let score = 0;           // score shown on screen
+    let pending = 0;         // taps not yet saved online
+    let loaded = false;      // true after the first reply from the server
+    let syncing = false;     // true while a tap save is running
+    let timer = null;        // short delay before saving
+    let chain = Promise.resolve();   // makes requests go one after another
+    let tab = 'play';
+    let LB = null;           // leaderboard data
+
+
+    // ---------- Helpers ----------
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    const fmt = n => Number(n).toLocaleString();
+    const levelOf = n => Math.floor(Math.sqrt(n / 25)) + 1;
+    const levelStart = l => 25 * (l - 1) * (l - 1);
+
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2300);
+    }
+
+
+    // ---------- Talking to the server ----------
+    function call(action, extra) {
+      const job = chain.then(() => run(action, extra || {}));
+      chain = job.catch(() => {});
+      return job;
+    }
+
+    async function run(action, extra) {
+      const toSend = Math.min(pending, 200);
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          keepalive: true,   // lets the save finish even if the app closes
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign(
+            { initData: tg.initData, action: action, ref: ref, taps: toSend },
+            extra
+          ))
+        });
+        const data = await res.json();
+
+        if (res.ok && typeof data.score === 'number') {
+          pending -= toSend;
+          S = data;
+          loaded = true;
+          score = data.score + pending * data.tap_power;
+          renderAll();
+        }
+        return data;
+      } catch (err) {
+        return { error: 'offline' };
+      }
+    }
+
+    async function sync() {
+      clearTimeout(timer);
+      timer = null;
+
+      if (syncing) return;
+      if (loaded && pending === 0) return;
+
+      syncing = true;
+      await call('sync');
+      syncing = false;
+
+      if (pending > 0) saveSoon(100);
+    }
+
+    function saveSoon(delay) {
+      if (timer) return;
+      timer = setTimeout(sync, delay);
+    }
+
+
+    // ---------- Drawing the screens ----------
+    function renderTop() {
+      const level = levelOf(score);
+      document.getElementById('level').textContent = 'Lv ' + level;
+      document.getElementById('title').textContent =
+        TITLES[Math.min(level - 1, TITLES.length - 1)];
+    }
+
+    function renderPlay() {
+      const level = levelOf(score);
+      const from = levelStart(level);
+      const size = levelStart(level + 1) - from;
+      const into = score - from;
+
+      document.getElementById('score').textContent = loaded ? fmt(score) : '...';
+      document.getElementById('fill').style.width = (into / size * 100) + '%';
+      document.getElementById('progressText').textContent =
+        fmt(into) + ' / ' + fmt(size) + ' to Level ' + (level + 1);
+
+      if (S) {
+        let line = '⚡ +' + S.tap_power + ' per tap';
+        if (S.auto_level > 0) line += '   •   🤖 ' + S.auto_level + ' / min';
+        document.getElementById('stats').textContent = line;
+      }
+      renderTop();
+    }
+
+    function buyButton(cost, key) {
+      if (cost === null) return '<button class="btn off">MAX</button>';
+      const cls = score >= cost ? 'btn' : 'btn off';
+      return '<button class="' + cls + '" data-do="upgrade:' + key + '">' +
+        fmt(cost) + ' 🌾</button>';
+    }
+
+    function renderTasks() {
+      if (!S) return;
+
+      const daily = S.daily_ready
+        ? '<button class="btn" data-do="daily">Claim +' + S.next_reward + '</button>'
+        : '<button class="btn off">Claimed ✓</button>';
+
+      let html = '<div class="page"><h2>🎁 Daily reward</h2>' +
+        '<div class="card"><div class="row"><div>' +
+        '<h3>Day streak: ' + S.streak + '</h3>' +
+        '<p>' + (S.daily_ready ? 'Come back every day for bigger rewards' : 'Come back tomorrow for more') + '</p>' +
+        '</div>' + daily + '</div></div>' +
+        '<h2>✅ Tasks</h2>';
+
+      S.tasks.forEach(t => {
+        let button;
+        if (t.claimed) button = '<button class="btn off">Done ✓</button>';
+        else if (t.progress >= t.target) button = '<button class="btn" data-do="task:' + t.id + '">+' + fmt(t.reward) + '</button>';
+        else button = '<button class="btn off">+' + fmt(t.reward) + '</button>';
+
+        html += '<div class="card"><div class="row"><div>' +
+          '<h3>' + esc(t.title) + '</h3>' +
+          '<p>' + fmt(t.progress) + ' / ' + fmt(t.target) + '</p></div>' +
+          button + '</div>' +
+          '<div class="small-bar"><div style="width:' + (t.progress / t.target * 100) + '%"></div></div></div>';
+      });
+
+      document.getElementById('panel-tasks').innerHTML = html + '</div>';
+    }
+
+    function renderShop() {
+      if (!S) return;
+
+      const html = '<div class="page"><h2>🛒 Shop</h2>' +
+        '<div class="card"><div class="row"><div>' +
+        '<h3>⚡ Tap power</h3>' +
+        '<p>Level ' + S.tap_power + ' • +' + S.tap_power + ' per tap</p>' +
+        '</div>' + buyButton(S.power_cost, 'power') + '</div></div>' +
+
+        '<div class="card"><div class="row"><div>' +
+        '<h3>🤖 Auto farm</h3>' +
+        '<p>Level ' + S.auto_level + ' • ' + S.auto_level + ' grains per minute, even when you are away (up to 2 hours)</p>' +
+        '</div>' + buyButton(S.auto_cost, 'auto') + '</div></div></div>';
+
+      document.getElementById('panel-shop').innerHTML = html;
+    }
+
+    function renderTop10() {
+      let html = '<div class="page"><h2>🏆 Top players</h2>';
+
+      if (!LB) {
+        html += '<div class="empty">Loading...</div>';
+      } else {
+        LB.rows.forEach((r, i) => {
+          const medal = ['🥇', '🥈', '🥉'][i] || (i + 1);
+          html += '<div class="lb-row' + (r.me ? ' me' : '') + '">' +
+            '<div class="lb-rank">' + medal + '</div>' +
+            '<div class="lb-name">' + esc(r.name) + '</div>' +
+            '<div class="lb-score">' + fmt(r.score) + '</div></div>';
+        });
+        html += '<div class="card" style="margin-top:14px"><div class="row"><h3>Your rank</h3>' +
+          '<h3 style="color:#ffd166">#' + fmt(LB.rank) + '</h3></div></div>';
+      }
+
+      document.getElementById('panel-top').innerHTML = html + '</div>';
+    }
+
+    function renderFriends() {
+      if (!S) return;
+      const link = BOT_LINK + '?startapp=' + S.telegram_id;
+
+      const html = '<div class="page"><h2>👥 Invite friends</h2>' +
+        '<div class="card"><h3>Earn 50 🌾 for every friend</h3>' +
+        '<p>Your friend also gets 25 🌾 to start. You can also finish tasks for inviting.</p>' +
+        '<button class="btn wide" data-do="share">Invite friends</button>' +
+        '<button class="btn wide off" data-do="copy">Copy my link</button>' +
+        '<div class="link-box">' + esc(link) + '</div></div>' +
+        '<div class="card"><div class="row"><h3>Friends invited</h3>' +
+        '<h3 style="color:#ffd166">' + S.invites + '</h3></div></div></div>';
+
+      document.getElementById('panel-friends').innerHTML = html;
+    }
+
+    function renderNav() {
+      if (!S) return;
+      const ready = S.daily_ready ||
+        S.tasks.some(t => !t.claimed && t.progress >= t.target);
+      document.getElementById('dot-tasks').classList.toggle('show', ready);
+    }
+
+    function renderAll() {
+      renderPlay();
+      renderTasks();
+      renderShop();
+      renderFriends();
+      renderNav();
+      if (tab === 'top') renderTop10();
+    }
+
+
+    // ---------- Switching screens ----------
+    function openTab(name) {
+      tab = name;
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + name).classList.add('active');
+      document.querySelectorAll('.nav button').forEach(b =>
+        b.classList.toggle('active', b.dataset.tab === name));
+
+      if (name === 'top') {
+        renderTop10();
+        call('leaderboard').then(d => {
+          if (d && d.rows) {
+            LB = d;
+            renderTop10();
+          }
+        });
+      } else if (name !== 'play') {
+        call('sync');   // refresh numbers
+      }
+    }
+
+    document.getElementById('nav').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (b) openTab(b.dataset.tab);
+    });
+
+
+    // ---------- Buttons inside screens ----------
+    const MESSAGES = {
+      already_claimed: 'Already claimed',
+      not_enough: 'Not enough grains yet',
+      not_ready: 'Task not finished yet',
+      max_level: 'Already at max level',
+      offline: 'No connection, try again'
+    };
+
+    function copyText(text) {
+      try {
+        const t = document.createElement('textarea');
+        t.value = text;
+        t.style.position = 'fixed';
+        t.style.opacity = '0';
+        t.style.userSelect = 'text';
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand('copy');
+        t.remove();
+        toast('Link copied ✓');
+      } catch (e) {
+        toast('Could not copy, use the Invite button');
+      }
+    }
+
+    document.querySelector('.screens').addEventListener('click', async e => {
+      const b = e.target.closest('[data-do]');
+      if (!b) return;
+      const parts = b.dataset.do.split(':');
+      const what = parts[0];
+
+      if (what === 'share') {
+        const link = BOT_LINK + '?startapp=' + S.telegram_id;
+        tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(link) +
+          '&text=' + encodeURIComponent('Join me on TapGrain and collect grains 🌾'));
+        return;
+      }
+      if (what === 'copy') {
+        copyText(BOT_LINK + '?startapp=' + S.telegram_id);
+        return;
+      }
+
+      let d;
+      if (what === 'daily') d = await call('daily');
+      if (what === 'upgrade') d = await call('upgrade', { type: parts[1] });
+      if (what === 'task') d = await call('task', { id: parts[1] });
+      if (!d) return;
+
+      if (d.error) {
+        toast(MESSAGES[d.error] || 'Something went wrong');
+      } else if (d.reward) {
+        toast('🎁 +' + fmt(d.reward) + ' grains!');
+        tg.HapticFeedback.notificationOccurred('success');
+      } else if (what === 'upgrade') {
+        toast('Upgraded ✓');
+        tg.HapticFeedback.notificationOccurred('success');
+      }
+    });
+
+
+    // ---------- Tap effects ----------
+    function addEffect(className, text, x, y, dx) {
+      const area = document.getElementById('area');
+      const el = document.createElement('div');
+      el.className = className;
+      if (text) el.textContent = text;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      if (dx !== undefined) el.style.setProperty('--dx', dx + 'px');
+      area.appendChild(el);
+      setTimeout(() => el.remove(), 1000);
+    }
+
+    function showLevelUp(level) {
+      const el = document.createElement('div');
+      el.className = 'levelup';
+      el.textContent = '🎉 Level ' + level + '!';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1600);
+      tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    function makeDust() {
+      for (let i = 0; i < 22; i++) {
+        const d = document.createElement('span');
+        const size = 3 + Math.random() * 5;
+        d.className = 'dust';
+        d.style.width = d.style.height = size + 'px';
+        d.style.left = Math.random() * 100 + '%';
+        d.style.animationDuration = 7 + Math.random() * 9 + 's';
+        d.style.animationDelay = -Math.random() * 12 + 's';
+        document.body.appendChild(d);
+      }
+    }
+
+
+    // ---------- Handle a tap ----------
+    function tap(e) {
+      if (!loaded) return;
+
+      const before = levelOf(score);
+      const power = S.tap_power;
+      score += power;
+      pending++;
+      renderPlay();
+      saveSoon(300);   // save 0.3 seconds after tapping
+      tg.HapticFeedback.impactOccurred('light');
+
+      // Score bump
+      const scoreEl = document.getElementById('score');
+      scoreEl.classList.remove('bump');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('bump');
+
+      // Tilt the grain toward the finger
+      const grain = document.getElementById('grain');
+      const g = grain.getBoundingClientRect();
+      const dx = (e.clientX - (g.left + g.width / 2)) / (g.width / 2);
+      const dy = (e.clientY - (g.top + g.height / 2)) / (g.height / 2);
+      grain.style.transform =
+        'perspective(500px) rotateX(' + (-dy * 14) + 'deg) rotateY(' + (dx * 14) + 'deg) scale(0.94)';
+      setTimeout(() => { grain.style.transform = ''; }, 110);
+
+      // Floating number and ripple
+      const rect = document.getElementById('area').getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      addEffect('ripple', '', x, y);
+      addEffect('float', '+' + power, x - 10, y - 30, (Math.random() - 0.5) * 60);
+
+      if (levelOf(score) > before) showLevelUp(levelOf(score));
+    }
+
+
+    // ---------- Start ----------
+    document.getElementById('grain').addEventListener('pointerdown', tap);
+
+    // Backup: retry every 2 seconds if anything is still unsaved
+    setInterval(sync, 2000);
+
+    // Refresh every 20 seconds so auto farm earnings show up
+    setInterval(() => {
+      if (S && S.auto_level > 0 && pending === 0) call('sync');
+    }, 20000);
+
+    // Save immediately when the app is closed or hidden, refresh when it comes back
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) sync();
+      else call('sync');
+    });
+    window.addEventListener('pagehide', sync);
+
+    makeDust();
+    renderPlay();
+    sync();
+  </script>
+
+</body>
+</html>
